@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>leaderbot — lead extractor</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #1a1d24; --panel2: #22262f; --border: #2e333d;
+    --text: #e6e8ec; --muted: #9aa2af; --accent: #5b8cff; --accent2: #3d6bff;
+    --good: #2ecc71; --warn: #f1c40f; --bad: #e74c3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+  }
+  header {
+    padding: 20px 28px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .badge { font-size: 12px; padding: 3px 9px; border-radius: 20px; background: var(--panel2); border: 1px solid var(--border); }
+  .badge.ok { color: var(--good); } .badge.no { color: var(--bad); }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { margin: 0 0 16px; font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--muted); }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; background: var(--panel2); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 14px; font-family: inherit;
+  }
+  textarea { min-height: 160px; resize: vertical; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .row > div { flex: 1; min-width: 160px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .tab {
+    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel2); cursor: pointer; font-size: 14px; color: var(--muted);
+  }
+  .tab.active { background: var(--accent2); color: white; border-color: var(--accent2); }
+  button.primary {
+    background: var(--accent2); color: white; border: none; padding: 12px 22px;
+    border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  button.primary:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost {
+    background: transparent; color: var(--accent); border: 1px solid var(--border);
+    padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .hidden { display: none; }
+  .status { margin-top: 14px; font-size: 14px; min-height: 20px; }
+  .spinner {
+    display: inline-block; width: 15px; height: 15px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .conf { font-weight: 700; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 12px; background: var(--panel2); border: 1px solid var(--border); white-space: nowrap; }
+  .u-high { color: var(--bad); } .u-medium { color: var(--warn); } .u-low { color: var(--muted); }
+  a { color: var(--accent); }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .toolbar .left { display: flex; align-items: center; gap: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎯 leaderbot</h1>
+  <span class="sub">collect posts → extract leads with Groq AI</span>
+  <span id="modelBadge" class="badge">model: …</span>
+  <span id="keyBadge" class="badge">key: …</span>
+</header>
+
+<main>
+  <!-- ============ INPUT ============ -->
+  <div class="card">
+    <h2>1. Source</h2>
+    <div class="tabs">
+      <div class="tab active" data-mode="reddit">Reddit</div>
+      <div class="tab" data-mode="manual">Manual paste</div>
+    </div>
+
+    <!-- Reddit panel -->
+    <div id="panel-reddit">
+      <div class="row">
+        <div style="flex:2">
+          <label>Subreddit name (without r/)</label>
+          <input type="text" id="subreddit" placeholder="smallbusiness" value="smallbusiness">
+        </div>
+        <div>
+          <label>Posts to pull</label>
+          <input type="number" id="limit" value="25" min="1" max="100">
+        </div>
+        <div>
+          <label>Comments / post</label>
+          <input type="number" id="comments" value="2" min="0" max="10">
+        </div>
+      </div>
+      <button class="ghost" id="testBtn">Test Reddit connection</button>
+      <div class="hint">Reddit's public JSON works from home/residential IPs. If it's blocked, try a phone hotspot or use manual paste.</div>
+      <div class="status" id="testStatus"></div>
+    </div>
+
+    <!-- Manual panel -->
+    <div id="panel-manual" class="hidden">
+      <label>Paste posts — one per block, separated by <code>---</code>. Optional <code>Author:</code> first line.</label>
+      <textarea id="pasteText" placeholder="Author: Jane Doe
+Looking for a good CRM for my 5-person startup, any recs?
+---
+Author: John Smith
+Just sharing weekend photos.
+---"></textarea>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>Source label</label>
+          <input type="text" id="sourceLabel" value="facebook" placeholder="facebook">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TARGET ============ -->
+  <div class="card">
+    <h2>2. What is a lead for you?</h2>
+    <label>Describe what you're selling / offering — the AI judges leads against this</label>
+    <input type="text" id="product" placeholder="a CRM tool for small teams">
+    <div class="hint">e.g. "an accounting service for freelancers", "a meal-prep delivery app", "web design for restaurants"</div>
+  </div>
+
+  <!-- ============ RUN ============ -->
+  <div class="card">
+    <button class="primary" id="runBtn">Run extraction</button>
+    <div class="status" id="runStatus"></div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div class="card" id="resultsCard" class="hidden">
+    <div class="toolbar">
+      <div class="left">
+        <h2 style="margin:0">Leads</h2>
+        <span id="resultCount" class="badge"></span>
+      </div>
+      <div>
+        <label style="display:inline; margin-right:6px">Min confidence</label>
+        <input type="number" id="minConf" value="0.5" min="0" max="1" step="0.05" style="width:80px; display:inline">
+        <button class="ghost" id="exportBtn">Export CSV</button>
+      </div>
+    </div>
+    <div id="resultsBody"></div>
+  </div>
+</main>
+
+<script>
+let currentMode = "reddit";
+
+// ---- config badges ----
+fetch("/api/config").then(r => r.json()).then(c => {
+  document.getElementById("modelBadge").textContent = "model: " + c.model;
+  const kb = document.getElementById("keyBadge");
+  kb.textContent = "Groq key: " + (c.groq_key_set ? "set" : "MISSING");
+  kb.classList.add(c.groq_key_set ? "ok" : "no");
+});
+
+// ---- tab switching ----
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentMode = tab.dataset.mode;
+    document.getElementById("panel-reddit").classList.toggle("hidden", currentMode !== "reddit");
+    document.getElementById("panel-manual").classList.toggle("hidden", currentMode !== "manual");
+  });
+});
+
+// ---- test reddit ----
+document.getElementById("testBtn").addEventListener("click", async () => {
+  const sub = document.getElementById("subreddit").value.trim() || "smallbusiness";
+  const el = document.getElementById("testStatus");
+  el.innerHTML = '<span class="spinner"></span>Testing…';
+  try {
+    const r = await fetch("/api/test-reddit?subreddit=" + encodeURIComponent(sub));
+    const d = await r.json();
+    if (d.ok) {
+      el.innerHTML = `✅ Reachable. Latest post: <em>${escapeHtml(d.sample_title).slice(0,80)}</em>`;
+      el.style.color = "var(--good)";
+    } else {
+      el.innerHTML = `❌ Blocked / failed: ${escapeHtml(d.error)}<br><span class="hint">Try a different network or use manual paste.</span>`;
+      el.style.color = "var(--bad)";
+    }
+  } catch (e) {
+    el.textContent = "❌ " + e; el.style.color = "var(--bad)";
+  }
+});
+
+// ---- run ----
+document.getElementById("runBtn").addEventListener("click", async () => {
+  const product = document.getElementById("product").value.trim();
+  const runStatus = document.getElementById("runStatus");
+  if (!product) { runStatus.textContent = "⚠️ Enter a product description first."; runStatus.style.color = "var(--warn)"; return; }
+
+  const body = { mode: currentMode, product };
+  if (currentMode === "reddit") {
+    body.subreddit = document.getElementById("subreddit").value.trim();
+    body.limit = parseInt(document.getElementById("limit").value) || 25;
+    body.comments_per_post = parseInt(document.getElementById("comments").value) || 0;
+    if (!body.subreddit) { runStatus.textContent = "⚠️ Enter a subreddit."; runStatus.style.color = "var(--warn)"; return; }
+  } else {
+    body.text = document.getElementById("pasteText").value;
+    body.source_label = document.getElementById("sourceLabel").value.trim() || "manual";
+    if (!body.text.trim()) { runStatus.textContent = "⚠️ Paste some posts first."; runStatus.style.color = "var(--warn)"; return; }
+  }
+
+  const btn = document.getElementById("runBtn");
+  btn.disabled = true;
+  runStatus.style.color = "var(--muted)";
+  runStatus.innerHTML = '<span class="spinner"></span>Collecting posts and calling Groq… this can take 10–60s.';
+
+  try {
+    const r = await fetch("/api/run", {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      runStatus.textContent = "❌ " + (d.error || "Run failed."); runStatus.style.color = "var(--bad)";
+    } else {
+      runStatus.innerHTML = `✅ Collected ${d.collected}, processed ${d.processed||0}, <b>${d.leads_found} leads</b> found.`;
+      runStatus.style.color = "var(--good)";
+      renderLeads(d.leads);
+    }
+  } catch (e) {
+    runStatus.textContent = "❌ " + e; runStatus.style.color = "var(--bad)";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---- render ----
+function renderLeads(leads) {
+  const card = document.getElementById("resultsCard");
+  card.classList.remove("hidden");
+  document.getElementById("resultCount").textContent = leads.length + " shown";
+  const body = document.getElementById("resultsBody");
+  if (!leads.length) { body.innerHTML = '<p style="color:var(--muted)">No leads found. Try a different subreddit, more posts, or a broader product description.</p>'; return; }
+
+  let html = '<table><thead><tr><th>Conf</th><th>Author</th><th>Intent</th><th>Urgency</th><th>Post</th><th>Why</th></tr></thead><tbody>';
+  for (const l of leads) {
+    const link = l.url ? `<a href="${escapeAttr(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.text).slice(0,90)}…</a>` : escapeHtml(l.text).slice(0,90) + "…";
+    html += `<tr>
+      <td class="conf">${(l.confidence).toFixed(2)}</td>
+      <td>${escapeHtml(l.author)}</td>
+      <td><span class="pill">${escapeHtml(l.intent)}</span></td>
+      <td class="u-${escapeAttr(l.urgency)}">${escapeHtml(l.urgency)}</td>
+      <td style="max-width:320px">${link}</td>
+      <td style="max-width:280px; color:var(--muted)">${escapeHtml(l.reason)}</td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  body.innerHTML = html;
+}
+
+// ---- export ----
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const mc = document.getElementById("minConf").value || 0.5;
+  window.location = "/api/export?min_confidence=" + mc;
+});
+
+// re-fetch from DB when min-confidence changes
+document.getElementById("minConf").addEventListener("change", async (e) => {
+  const r = await fetch("/api/leads?min_confidence=" + (e.target.value || 0.5));
+  const rows = await r.json();
+  renderLeads(rows.map(x => ({
+    author: x.author, confidence: x.confidence, intent: x.intent, urgency: x.urgency,
+    reason: x.reason, text: x.text, url: x.post_url, source: x.source
+  })));
+});
+
+function escapeHtml(s) { return (s||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escapeAttr(s) { return escapeHtml(s).replace(/'/g,"&#39;"); }
+</script>
+</body>
+</html>
