@@ -143,6 +143,7 @@ def run():
             "intent": r["intent"], "urgency": r["urgency"],
             "reason": r["reason"], "text": r["text"][:400],
             "url": r.get("url", ""), "source": r["source"],
+            "created_utc": r.get("created_utc", 0),
         } for r in leads],
     })
 

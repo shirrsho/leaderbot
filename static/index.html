@@ -263,12 +263,13 @@ function renderLeads(leads) {
   const body = document.getElementById("resultsBody");
   if (!leads.length) { body.innerHTML = '<p style="color:var(--muted)">No leads found. Try a different subreddit, more posts, or a broader product description.</p>'; return; }
 
-  let html = '<table><thead><tr><th>Conf</th><th>Author</th><th>Intent</th><th>Urgency</th><th>Post</th><th>Why</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>Conf</th><th>Author</th><th>Posted</th><th>Intent</th><th>Urgency</th><th>Post</th><th>Why</th></tr></thead><tbody>';
   for (const l of leads) {
     const link = l.url ? `<a href="${escapeAttr(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.text).slice(0,90)}…</a>` : escapeHtml(l.text).slice(0,90) + "…";
     html += `<tr>
       <td class="conf">${(l.confidence).toFixed(2)}</td>
       <td>${escapeHtml(l.author)}</td>
+      <td style="white-space:nowrap; color:var(--muted); font-size:13px">${formatPosted(l)}</td>
       <td><span class="pill">${escapeHtml(l.intent)}</span></td>
       <td class="u-${escapeAttr(l.urgency)}">${escapeHtml(l.urgency)}</td>
       <td style="max-width:320px">${link}</td>
@@ -291,9 +292,30 @@ document.getElementById("minConf").addEventListener("change", async (e) => {
   const rows = await r.json();
   renderLeads(rows.map(x => ({
     author: x.author, confidence: x.confidence, intent: x.intent, urgency: x.urgency,
-    reason: x.reason, text: x.text, url: x.post_url, source: x.source
+    reason: x.reason, text: x.text, url: x.post_url, source: x.source,
+    created_at: x.created_at
   })));
 });
+
+function formatPosted(l) {
+  // Fresh runs send created_utc (unix seconds); DB refetch sends created_at (ISO).
+  let d = null;
+  if (l.created_utc) d = new Date(l.created_utc * 1000);
+  else if (l.created_at) d = new Date(l.created_at);
+  if (!d || isNaN(d.getTime()) || d.getTime() === 0) return "—";
+
+  const abs = d.toLocaleString(undefined, {
+    year: "2-digit", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+  const diff = (Date.now() - d.getTime()) / 1000;
+  let rel;
+  if (diff < 60) rel = "just now";
+  else if (diff < 3600) rel = Math.floor(diff/60) + "m ago";
+  else if (diff < 86400) rel = Math.floor(diff/3600) + "h ago";
+  else rel = Math.floor(diff/86400) + "d ago";
+  return `${abs}<br><span style="font-size:11px; opacity:.7">${rel}</span>`;
+}
 
 function escapeHtml(s) { return (s||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function escapeAttr(s) { return escapeHtml(s).replace(/'/g,"&#39;"); }
