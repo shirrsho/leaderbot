@@ -23,7 +23,13 @@ source venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
-Then open **http://127.0.0.3000** in your browser.
+Then open **http://127.0.0.1:3500** in your browser.
+
+Or with Docker:
+```bash
+cp .env.example .env   # fill in GROQ_API_KEY
+docker compose -f docker-compose.dev.yml up --build
+```
 
 The UI shows the active Groq model and whether your key is detected, lets you
 switch between **Reddit** and **Manual paste**, test the Reddit connection

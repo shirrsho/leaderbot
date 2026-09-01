@@ -171,4 +171,7 @@ def export():
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="127.0.0.1", port=3000, debug=True)
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", 3500))
+    debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    app.run(host=host, port=port, debug=debug)

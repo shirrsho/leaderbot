@@ -1,8 +1,14 @@
 """SQLite storage for collected posts and extracted leads."""
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "leads.db"
+# Override with LEADS_DB_PATH to point at a mounted volume in Docker so the
+# database survives container recreation/rebuilds.
+DB_PATH = Path(os.environ.get(
+    "LEADS_DB_PATH",
+    Path(__file__).resolve().parent.parent / "leads.db",
+))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS leads (

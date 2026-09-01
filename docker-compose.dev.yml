@@ -1,0 +1,19 @@
+services:
+  leaderbot:
+    build: .
+    image: leaderbot:dev
+    container_name: leaderbot-dev
+    ports:
+      - "3500:3500"
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3500
+      FLASK_DEBUG: "true"
+    volumes:
+      # Live-reload: mount source so code edits on the host are picked up
+      # by Flask's debug reloader without rebuilding the image. leads.db
+      # ends up as a plain file in the repo (already gitignored).
+      - .:/app
+    command: ["python", "app.py"]

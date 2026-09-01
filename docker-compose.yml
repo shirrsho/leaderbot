@@ -1,0 +1,19 @@
+services:
+  leaderbot:
+    build: .
+    image: leaderbot:latest
+    container_name: leaderbot
+    restart: unless-stopped
+    ports:
+      # Bind only to localhost — Cloudflare Tunnel (cloudflared) reaches this
+      # over loopback, so the port is never exposed on the public interface.
+      - "127.0.0.1:3500:3500"
+    env_file:
+      - .env
+    environment:
+      LEADS_DB_PATH: /app/data/leads.db
+    volumes:
+      - leaderbot-data:/app/data
+
+volumes:
+  leaderbot-data:
