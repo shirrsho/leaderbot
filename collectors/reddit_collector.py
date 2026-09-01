@@ -74,13 +74,22 @@ def _get(url, params=None, retries=3, backoff=2.0):
 
 
 def collect_subreddit(subreddit_name: str, limit: int = 50, comments_per_post: int = 3,
-                       sleep_between_requests: float = 1.5):
+                       sleep_between_requests: float = 1.5, after: str = None):
     """
-    Returns a list of dicts: {post_id, author, text, url, created_utc, source}
-    Includes the post itself plus a few top-level comments.
+    Pull up to `limit` posts (plus a few comments each) from a subreddit.
+
+    Pagination:
+        Pass `after` = the cursor returned by a previous call to continue from
+        where you left off (older posts). Pass None to start from the newest.
+
+    Returns:
+        (items, next_after)
+        - items: list of dicts {post_id, author, text, url, created_utc,
+                 source, kind}  where kind is "post" or "comment"
+        - next_after: cursor string to pass on the next call, or None if you've
+                 reached the end of the listing (no older posts left).
     """
     items = []
-    after = None
     fetched = 0
 
     while fetched < limit:
@@ -92,6 +101,7 @@ def collect_subreddit(subreddit_name: str, limit: int = 50, comments_per_post: i
         data = _get(f"https://www.reddit.com/r/{subreddit_name}/new.json", params=params)
         children = data.get("data", {}).get("children", [])
         if not children:
+            after = None  # nothing left
             break
 
         for child in children:
@@ -103,6 +113,7 @@ def collect_subreddit(subreddit_name: str, limit: int = 50, comments_per_post: i
                 "url": f"https://reddit.com{post.get('permalink', '')}",
                 "created_utc": post.get("created_utc", 0),
                 "source": "reddit",
+                "kind": "post",
             })
             fetched += 1
 
@@ -126,16 +137,17 @@ def collect_subreddit(subreddit_name: str, limit: int = 50, comments_per_post: i
                             "url": f"https://reddit.com{cdata.get('permalink', '')}",
                             "created_utc": cdata.get("created_utc", 0),
                             "source": "reddit",
+                            "kind": "comment",
                         })
                 except Exception as e:
                     print(f"  (skipping comments for post {post['id']}: {e})")
 
         after = data.get("data", {}).get("after")
         if not after:
-            break
+            break  # reached end of listing
         time.sleep(sleep_between_requests)
 
-    return items
+    return items, after
 
 
 def self_test(subreddit_name: str = "smallbusiness"):
@@ -170,6 +182,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     sub = sys.argv[1] if len(sys.argv) > 1 else "smallbusiness"
-    results = collect_subreddit(sub, limit=10, comments_per_post=2)
+    results, next_after = collect_subreddit(sub, limit=10, comments_per_post=2)
     print(json.dumps(results[:3], indent=2))
     print(f"\nCollected {len(results)} items from r/{sub}")
+    print(f"next_after cursor: {next_after}")

@@ -21,6 +21,13 @@ CREATE TABLE IF NOT EXISTS leads (
     created_at TEXT,
     reviewed INTEGER DEFAULT 0
 );
+
+-- Remembers where we stopped paginating each subreddit, so the next run
+-- continues from older posts instead of re-pulling the newest ones.
+CREATE TABLE IF NOT EXISTS cursors (
+    source_key TEXT PRIMARY KEY,   -- e.g. "reddit:smallbusiness"
+    after TEXT
+);
 """
 
 
@@ -50,6 +57,33 @@ def upsert_lead(row: dict):
         """,
         row,
     )
+    conn.commit()
+    conn.close()
+
+
+def get_cursor(source_key: str):
+    conn = get_conn()
+    row = conn.execute("SELECT after FROM cursors WHERE source_key = ?", (source_key,)).fetchone()
+    conn.close()
+    return row["after"] if row else None
+
+
+def set_cursor(source_key: str, after):
+    conn = get_conn()
+    conn.execute(
+        """
+        INSERT INTO cursors (source_key, after) VALUES (?, ?)
+        ON CONFLICT(source_key) DO UPDATE SET after = excluded.after
+        """,
+        (source_key, after),
+    )
+    conn.commit()
+    conn.close()
+
+
+def clear_cursor(source_key: str):
+    conn = get_conn()
+    conn.execute("DELETE FROM cursors WHERE source_key = ?", (source_key,))
     conn.commit()
     conn.close()
 

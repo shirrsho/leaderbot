@@ -42,6 +42,7 @@ def parse_text(raw: str, source: str = "manual"):
             "url": "",
             "created_utc": now,
             "source": source,
+            "kind": "post",
         })
 
     return items

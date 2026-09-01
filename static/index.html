@@ -101,6 +101,13 @@
           <input type="number" id="comments" value="2" min="0" max="10">
         </div>
       </div>
+      <div style="margin-bottom:12px">
+        <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
+          <input type="checkbox" id="startFresh" style="width:auto">
+          Start fresh (ignore saved position — pull newest again)
+        </label>
+        <div class="hint">Leave unchecked to continue from where the last run stopped (older posts). Each run auto-remembers its position per subreddit.</div>
+      </div>
       <button class="ghost" id="testBtn">Test Reddit connection</button>
       <div class="hint">Reddit's public JSON works from home/residential IPs. If it's blocked, try a phone hotspot or use manual paste.</div>
       <div class="status" id="testStatus"></div>
@@ -208,6 +215,7 @@ document.getElementById("runBtn").addEventListener("click", async () => {
     body.subreddit = document.getElementById("subreddit").value.trim();
     body.limit = parseInt(document.getElementById("limit").value) || 25;
     body.comments_per_post = parseInt(document.getElementById("comments").value) || 0;
+    body.start_fresh = document.getElementById("startFresh").checked;
     if (!body.subreddit) { runStatus.textContent = "⚠️ Enter a subreddit."; runStatus.style.color = "var(--warn)"; return; }
   } else {
     body.text = document.getElementById("pasteText").value;
@@ -228,7 +236,15 @@ document.getElementById("runBtn").addEventListener("click", async () => {
     if (!r.ok) {
       runStatus.textContent = "❌ " + (d.error || "Run failed."); runStatus.style.color = "var(--bad)";
     } else {
-      runStatus.innerHTML = `✅ Collected ${d.collected}, processed ${d.processed||0}, <b>${d.leads_found} leads</b> found.`;
+      let breakdown = `Collected ${d.collected}`;
+      if (d.posts !== undefined) breakdown += ` (${d.posts} posts + ${d.comments} comments)`;
+      let pag = "";
+      if (currentMode === "reddit") {
+        pag = d.reached_end
+          ? ' <span style="color:var(--warn)">— reached the end of this subreddit (no older posts left).</span>'
+          : ' <span style="color:var(--muted)">— run again to pull the next batch of older posts.</span>';
+      }
+      runStatus.innerHTML = `✅ ${breakdown}, <b>${d.leads_found} leads</b> found.${pag}`;
       runStatus.style.color = "var(--good)";
       renderLeads(d.leads);
     }

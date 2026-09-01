@@ -53,7 +53,7 @@ def main():
 
     if args.mode == "reddit":
         from collectors.reddit_collector import collect_subreddit
-        items = collect_subreddit(args.target, limit=args.limit)
+        items, _next_after = collect_subreddit(args.target, limit=args.limit)
     else:
         from collectors.manual_collector import parse_text_file
         items = parse_text_file(args.target, args.source_label)

@@ -15,7 +15,8 @@ from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from dotenv import load_dotenv
 
-from storage.db import init_db, upsert_lead, fetch_leads
+from storage.db import (init_db, upsert_lead, fetch_leads,
+                        get_cursor, set_cursor, clear_cursor)
 from extractor import extract_leads, MODEL
 
 load_dotenv()
@@ -78,6 +79,8 @@ def run():
 
     init_db()
 
+    next_after = None
+    reached_end = False
     try:
         if mode == "reddit":
             sub = (body.get("subreddit") or "").strip()
@@ -85,8 +88,22 @@ def run():
                 return jsonify({"error": "Subreddit name is required."}), 400
             limit = int(body.get("limit", 25))
             comments = int(body.get("comments_per_post", 2))
+            start_fresh = bool(body.get("start_fresh"))
+
+            cursor_key = f"reddit:{sub.lower()}"
+            if start_fresh:
+                clear_cursor(cursor_key)
+                after = None
+            else:
+                after = get_cursor(cursor_key)
+
             from collectors.reddit_collector import collect_subreddit
-            items = collect_subreddit(sub, limit=limit, comments_per_post=comments)
+            items, next_after = collect_subreddit(
+                sub, limit=limit, comments_per_post=comments, after=after)
+
+            # Save the new position so the next run continues from here.
+            set_cursor(cursor_key, next_after)
+            reached_end = next_after is None
         elif mode == "manual":
             raw = body.get("text") or ""
             label = (body.get("source_label") or "manual").strip()
@@ -110,10 +127,17 @@ def run():
     leads = [r for r in results if r["is_lead"]]
     leads.sort(key=lambda x: x["confidence"], reverse=True)
 
+    posts_count = sum(1 for it in items if it.get("kind") == "post")
+    comments_count = sum(1 for it in items if it.get("kind") == "comment")
+
     return jsonify({
         "collected": len(items),
+        "posts": posts_count,
+        "comments": comments_count,
         "processed": len(results),
         "leads_found": len(leads),
+        "has_more": (mode == "reddit" and not reached_end),
+        "reached_end": reached_end,
         "leads": [{
             "author": r["author"], "confidence": r["confidence"],
             "intent": r["intent"], "urgency": r["urgency"],
