@@ -16,8 +16,9 @@ from flask import Flask, request, jsonify, send_file, send_from_directory
 from dotenv import load_dotenv
 
 from storage.db import (init_db, upsert_lead, fetch_leads,
-                        get_cursor, set_cursor, clear_cursor)
-from extractor import extract_leads, MODEL
+                        get_cursor, set_cursor, clear_cursor,
+                        upsert_company, fetch_companies)
+from extractor import extract_leads, shortlist_companies, MODEL
 
 load_dotenv()
 
@@ -148,6 +149,90 @@ def run():
     })
 
 
+@app.route("/api/maps", methods=["POST"])
+def maps():
+    body = request.get_json(force=True)
+    business_type = (body.get("business_type") or "").strip()
+    location = (body.get("location") or "").strip()
+    product = (body.get("product") or "").strip()
+    limit = int(body.get("limit", 25))
+
+    if not business_type:
+        return jsonify({"error": "Business type/category is required."}), 400
+    if not location:
+        return jsonify({"error": "Location is required."}), 400
+    if not product:
+        return jsonify({"error": "Product description is required."}), 400
+
+    init_db()
+
+    try:
+        from collectors.maps_collector import search_companies
+        found = search_companies(business_type, location, limit=limit)
+    except Exception as e:
+        return jsonify({"error": f"Map search failed: {e}"}), 500
+
+    if not found:
+        return jsonify({"found": 0, "customers_found": 0, "companies": [],
+                        "message": "No businesses found. Try a broader type or a bigger city."})
+
+    try:
+        results = shortlist_companies(found, product_description=product)
+    except Exception as e:
+        return jsonify({"error": f"AI shortlisting failed: {e}"}), 500
+
+    now = datetime.now(timezone.utc).isoformat()
+    for r in results:
+        upsert_company({
+            "company_id": r["company_id"], "name": r.get("name", ""),
+            "category": r.get("category", ""), "address": r.get("address", ""),
+            "phone": r.get("phone", ""), "website": r.get("website", ""),
+            "lat": r.get("lat", ""), "lon": r.get("lon", ""),
+            "source": r.get("source", "osm"),
+            "is_customer": int(r["is_customer"]), "confidence": r["confidence"],
+            "reason": r["reason"], "fit_signals": r.get("fit_signals", ""),
+            "query": business_type, "location": location, "created_at": now,
+        })
+
+    customers = [r for r in results if r["is_customer"]]
+    customers.sort(key=lambda x: x["confidence"], reverse=True)
+
+    return jsonify({
+        "found": len(found),
+        "processed": len(results),
+        "customers_found": len(customers),
+        "companies": [{
+            "name": r.get("name", ""), "category": r.get("category", ""),
+            "address": r.get("address", ""), "phone": r.get("phone", ""),
+            "website": r.get("website", ""), "confidence": r["confidence"],
+            "reason": r["reason"], "fit_signals": r.get("fit_signals", ""),
+            "lat": r.get("lat", ""), "lon": r.get("lon", ""),
+        } for r in customers],
+    })
+
+
+@app.route("/api/companies")
+def companies():
+    min_conf = float(request.args.get("min_confidence", 0.5))
+    return jsonify(fetch_companies(min_confidence=min_conf, only_customers=True))
+
+
+@app.route("/api/companies/export")
+def companies_export():
+    min_conf = float(request.args.get("min_confidence", 0.5))
+    rows = fetch_companies(min_confidence=min_conf, only_customers=True)
+    if not rows:
+        return jsonify({"error": "No companies to export."}), 404
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=rows[0].keys())
+    writer.writeheader()
+    writer.writerows(rows)
+    mem = io.BytesIO(buf.getvalue().encode("utf-8"))
+    mem.seek(0)
+    return send_file(mem, mimetype="text/csv", as_attachment=True,
+                     download_name="companies.csv")
+
+
 @app.route("/api/leads")
 def leads():
     min_conf = float(request.args.get("min_confidence", 0.5))
@@ -173,6 +258,6 @@ def export():
 if __name__ == "__main__":
     init_db()
     host = os.environ.get("HOST", "127.0.0.1")
-    port = int(os.environ.get("PORT", 3500))
+    port = int(os.environ.get("PORT", 3000))
     debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
     app.run(host=host, port=port, debug=debug)

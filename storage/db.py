@@ -34,6 +34,27 @@ CREATE TABLE IF NOT EXISTS cursors (
     source_key TEXT PRIMARY KEY,   -- e.g. "reddit:smallbusiness"
     after TEXT
 );
+
+-- Companies found via map search + AI-shortlisted as probable customers.
+CREATE TABLE IF NOT EXISTS companies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id TEXT UNIQUE NOT NULL,   -- external id (e.g. osm node id)
+    name TEXT,
+    category TEXT,
+    address TEXT,
+    phone TEXT,
+    website TEXT,
+    lat TEXT,
+    lon TEXT,
+    source TEXT,
+    is_customer INTEGER,
+    confidence REAL,
+    reason TEXT,
+    fit_signals TEXT,
+    query TEXT,
+    location TEXT,
+    created_at TEXT
+);
 """
 
 
@@ -65,6 +86,42 @@ def upsert_lead(row: dict):
     )
     conn.commit()
     conn.close()
+
+
+def upsert_company(row: dict):
+    """Insert or update a company by its external company_id."""
+    conn = get_conn()
+    conn.execute(
+        """
+        INSERT INTO companies
+        (company_id, name, category, address, phone, website, lat, lon, source,
+         is_customer, confidence, reason, fit_signals, query, location, created_at)
+        VALUES (:company_id, :name, :category, :address, :phone, :website, :lat,
+                :lon, :source, :is_customer, :confidence, :reason, :fit_signals,
+                :query, :location, :created_at)
+        ON CONFLICT(company_id) DO UPDATE SET
+            is_customer=excluded.is_customer, confidence=excluded.confidence,
+            reason=excluded.reason, fit_signals=excluded.fit_signals,
+            phone=excluded.phone, website=excluded.website,
+            query=excluded.query, location=excluded.location,
+            created_at=excluded.created_at
+        """,
+        row,
+    )
+    conn.commit()
+    conn.close()
+
+
+def fetch_companies(min_confidence: float = 0.0, only_customers: bool = True):
+    conn = get_conn()
+    query = "SELECT * FROM companies WHERE confidence >= ?"
+    params = [min_confidence]
+    if only_customers:
+        query += " AND is_customer = 1"
+    query += " ORDER BY confidence DESC"
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def get_cursor(source_key: str):

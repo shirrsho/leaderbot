@@ -35,6 +35,27 @@ The UI shows the active Groq model and whether your key is detected, lets you
 switch between **Reddit** and **Manual paste**, test the Reddit connection
 before running, and export flagged leads to CSV.
 
+### Maps → Companies (B2B lead finder)
+
+The **🗺️ Maps → Companies** tab finds businesses on the map by type + location,
+then the AI shortlists which ones are probable customers for what you sell —
+with their details (phone/website/address/map link) and a reason for each.
+
+- **Business type / category:** pick from the dropdown (130+ types grouped by
+  industry) or choose "Other" to type a custom one. Dropdown categories are
+  mapped to real OSM tags and queried via the Overpass API for reliable,
+  complete results; custom text uses free-text search.
+- **Location:** e.g. `Dhaka, Bangladesh`, `Austin, Texas`
+- **What you sell** (the product field): the AI judges fit against this
+
+Data comes from **OpenStreetMap** (free, no key). Coverage varies by area —
+big cities give the best results; phone/website show only when the business
+added them to OSM. Results are stored in the `companies` table and export to
+CSV via the same Export button.
+
+> Want richer data (phone/website/ratings on nearly every business)? A Google
+> Places API key can be wired in as an alternative provider — ask when ready.
+
 ## Command-line usage
 
 ### Reddit

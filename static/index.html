@@ -83,6 +83,7 @@
     <div class="tabs">
       <div class="tab active" data-mode="reddit">Reddit</div>
       <div class="tab" data-mode="manual">Manual paste</div>
+      <div class="tab" data-mode="maps">🗺️ Maps → Companies</div>
     </div>
 
     <!-- Reddit panel -->
@@ -129,6 +130,119 @@ Just sharing weekend photos.
         </div>
       </div>
     </div>
+
+    <!-- Maps panel -->
+    <div id="panel-maps" class="hidden">
+      <div class="row">
+        <div style="flex:2">
+          <label>Business type / category</label>
+          <select id="bizType">
+            <option value="" disabled selected>Select a business type…</option>
+            <optgroup label="🍽️ Food &amp; Drink">
+              <option>restaurant</option><option>cafe</option><option>coffee shop</option>
+              <option>bakery</option><option>bar</option><option>pub</option>
+              <option>fast food</option><option>food truck</option><option>catering service</option>
+              <option>ice cream shop</option><option>juice bar</option><option>tea house</option>
+              <option>sweet shop</option>
+            </optgroup>
+            <optgroup label="🛍️ Retail &amp; Shops">
+              <option>supermarket</option><option>grocery store</option><option>convenience store</option>
+              <option>clothing store</option><option>shoe store</option><option>jewelry store</option>
+              <option>electronics store</option><option>mobile phone shop</option><option>furniture store</option>
+              <option>hardware store</option><option>bookstore</option><option>stationery shop</option>
+              <option>florist</option><option>gift shop</option><option>pet store</option>
+              <option>toy store</option><option>sporting goods store</option><option>optical shop</option>
+              <option>cosmetics store</option><option>pharmacy</option>
+            </optgroup>
+            <optgroup label="🏥 Health &amp; Medical">
+              <option>hospital</option><option>clinic</option><option>dental clinic</option>
+              <option>doctor's office</option><option>diagnostic lab</option><option>physiotherapy center</option>
+              <option>veterinary clinic</option><option>mental health clinic</option><option>chiropractor</option>
+              <option>medical equipment supplier</option>
+            </optgroup>
+            <optgroup label="💇 Beauty &amp; Wellness">
+              <option>beauty salon</option><option>hair salon</option><option>barber shop</option>
+              <option>spa</option><option>nail salon</option><option>gym</option>
+              <option>fitness center</option><option>yoga studio</option><option>massage center</option>
+            </optgroup>
+            <optgroup label="💼 Professional Services">
+              <option>law firm</option><option>accounting firm</option><option>marketing agency</option>
+              <option>advertising agency</option><option>consulting firm</option><option>real estate agency</option>
+              <option>insurance agency</option><option>architecture firm</option><option>engineering firm</option>
+              <option>recruitment agency</option><option>translation service</option>
+            </optgroup>
+            <optgroup label="💻 Technology">
+              <option>software company</option><option>IT services company</option><option>web design agency</option>
+              <option>computer repair shop</option><option>electronics manufacturer</option>
+              <option>telecom company</option><option>data center</option><option>startup</option>
+            </optgroup>
+            <optgroup label="🎓 Education">
+              <option>school</option><option>college</option><option>university</option>
+              <option>coaching center</option><option>language school</option><option>driving school</option>
+              <option>kindergarten</option><option>library</option><option>training institute</option>
+              <option>music school</option>
+            </optgroup>
+            <optgroup label="🚗 Automotive">
+              <option>car dealership</option><option>auto repair shop</option><option>car wash</option>
+              <option>tire shop</option><option>gas station</option><option>motorcycle dealer</option>
+              <option>auto parts store</option>
+            </optgroup>
+            <optgroup label="🏨 Hospitality &amp; Travel">
+              <option>hotel</option><option>motel</option><option>guest house</option>
+              <option>hostel</option><option>resort</option><option>travel agency</option>
+              <option>tour operator</option>
+            </optgroup>
+            <optgroup label="🔧 Construction &amp; Home Services">
+              <option>construction company</option><option>general contractor</option><option>plumber</option>
+              <option>electrician</option><option>painter</option><option>interior designer</option>
+              <option>landscaping service</option><option>cleaning service</option><option>pest control</option>
+              <option>roofing company</option><option>moving company</option>
+            </optgroup>
+            <optgroup label="🏭 Manufacturing &amp; Industrial">
+              <option>factory</option><option>manufacturer</option><option>warehouse</option>
+              <option>wholesaler</option><option>distributor</option><option>printing press</option>
+              <option>textile mill</option><option>packaging company</option>
+            </optgroup>
+            <optgroup label="🏦 Finance">
+              <option>bank</option><option>credit union</option><option>microfinance institution</option>
+              <option>investment firm</option><option>brokerage</option><option>money transfer service</option>
+            </optgroup>
+            <optgroup label="🎬 Entertainment &amp; Recreation">
+              <option>cinema</option><option>night club</option><option>bowling alley</option>
+              <option>amusement park</option><option>event venue</option><option>photography studio</option>
+              <option>art gallery</option><option>museum</option><option>gaming center</option>
+            </optgroup>
+            <optgroup label="🚚 Logistics &amp; Transport">
+              <option>courier service</option><option>logistics company</option><option>shipping company</option>
+              <option>taxi service</option><option>freight forwarder</option>
+            </optgroup>
+            <optgroup label="🌾 Agriculture">
+              <option>farm</option><option>garden center</option><option>agricultural supplier</option>
+              <option>poultry farm</option>
+            </optgroup>
+            <optgroup label="🤝 Community &amp; Other">
+              <option>NGO</option><option>charity</option><option>community center</option>
+              <option>co-working space</option><option>laundry service</option><option>dry cleaner</option>
+              <option>tailor</option><option>funeral home</option><option>storage facility</option>
+              <option>place of worship</option>
+            </optgroup>
+            <optgroup label="✏️ Custom">
+              <option value="__custom__">Other (type your own)…</option>
+            </optgroup>
+          </select>
+          <input type="text" id="bizTypeCustom" class="hidden" placeholder="Enter business type" style="margin-top:8px">
+        </div>
+        <div style="flex:2">
+          <label>Location</label>
+          <input type="text" id="location" placeholder="Dhaka, Bangladesh">
+        </div>
+        <div>
+          <label>Max results</label>
+          <input type="number" id="mapsLimit" value="25" min="1" max="50">
+        </div>
+      </div>
+      <div class="hint">Data from OpenStreetMap (free). Coverage varies by area — big cities work best. Phone/website appear only when the business added them to OSM.</div>
+    </div>
   </div>
 
   <!-- ============ TARGET ============ -->
@@ -149,7 +263,7 @@ Just sharing weekend photos.
   <div class="card" id="resultsCard" class="hidden">
     <div class="toolbar">
       <div class="left">
-        <h2 style="margin:0">Leads</h2>
+        <h2 style="margin:0" id="resultsTitle">Leads</h2>
         <span id="resultCount" class="badge"></span>
       </div>
       <div>
@@ -164,6 +278,7 @@ Just sharing weekend photos.
 
 <script>
 let currentMode = "reddit";
+let lastResultType = "leads";  // "leads" or "companies" — controls export + refetch
 
 // ---- config badges ----
 fetch("/api/config").then(r => r.json()).then(c => {
@@ -181,7 +296,19 @@ document.querySelectorAll(".tab").forEach(tab => {
     currentMode = tab.dataset.mode;
     document.getElementById("panel-reddit").classList.toggle("hidden", currentMode !== "reddit");
     document.getElementById("panel-manual").classList.toggle("hidden", currentMode !== "manual");
+    document.getElementById("panel-maps").classList.toggle("hidden", currentMode !== "maps");
+    // product field means "what we sell" in all modes; tweak the wording for maps
+    document.getElementById("runBtn").textContent =
+      currentMode === "maps" ? "Find & shortlist companies" : "Run extraction";
   });
+});
+
+// ---- business-type custom toggle ----
+document.getElementById("bizType").addEventListener("change", (e) => {
+  const custom = document.getElementById("bizTypeCustom");
+  const isCustom = e.target.value === "__custom__";
+  custom.classList.toggle("hidden", !isCustom);
+  if (isCustom) custom.focus();
 });
 
 // ---- test reddit ----
@@ -210,6 +337,44 @@ document.getElementById("runBtn").addEventListener("click", async () => {
   const runStatus = document.getElementById("runStatus");
   if (!product) { runStatus.textContent = "⚠️ Enter a product description first."; runStatus.style.color = "var(--warn)"; return; }
 
+  // ---- MAPS mode: different endpoint + rendering ----
+  if (currentMode === "maps") {
+    const bizSel = document.getElementById("bizType").value;
+    const bizType = (bizSel === "__custom__"
+      ? document.getElementById("bizTypeCustom").value.trim()
+      : bizSel).trim();
+    const location = document.getElementById("location").value.trim();
+    if (!bizType) { runStatus.textContent = "⚠️ Enter a business type."; runStatus.style.color = "var(--warn)"; return; }
+    if (!location) { runStatus.textContent = "⚠️ Enter a location."; runStatus.style.color = "var(--warn)"; return; }
+    const mbody = {
+      business_type: bizType, location,
+      limit: parseInt(document.getElementById("mapsLimit").value) || 25,
+      product,
+    };
+    const btn = document.getElementById("runBtn");
+    btn.disabled = true;
+    runStatus.style.color = "var(--muted)";
+    runStatus.innerHTML = '<span class="spinner"></span>Searching the map and asking the AI to shortlist… 10–60s.';
+    try {
+      const r = await fetch("/api/maps", {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(mbody)
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        runStatus.textContent = "❌ " + (d.error || "Search failed."); runStatus.style.color = "var(--bad)";
+      } else {
+        runStatus.innerHTML = `✅ Found ${d.found} businesses, <b>${d.customers_found} shortlisted</b> as probable customers.`;
+        runStatus.style.color = "var(--good)";
+        lastResultType = "companies";
+        renderCompanies(d.companies);
+      }
+    } catch (e) {
+      runStatus.textContent = "❌ " + e; runStatus.style.color = "var(--bad)";
+    } finally { btn.disabled = false; }
+    return;
+  }
+
+  // ---- REDDIT / MANUAL mode ----
   const body = { mode: currentMode, product };
   if (currentMode === "reddit") {
     body.subreddit = document.getElementById("subreddit").value.trim();
@@ -246,6 +411,7 @@ document.getElementById("runBtn").addEventListener("click", async () => {
       }
       runStatus.innerHTML = `✅ ${breakdown}, <b>${d.leads_found} leads</b> found.${pag}`;
       runStatus.style.color = "var(--good)";
+      lastResultType = "leads";
       renderLeads(d.leads);
     }
   } catch (e) {
@@ -259,6 +425,7 @@ document.getElementById("runBtn").addEventListener("click", async () => {
 function renderLeads(leads) {
   const card = document.getElementById("resultsCard");
   card.classList.remove("hidden");
+  document.getElementById("resultsTitle").textContent = "Leads";
   document.getElementById("resultCount").textContent = leads.length + " shown";
   const body = document.getElementById("resultsBody");
   if (!leads.length) { body.innerHTML = '<p style="color:var(--muted)">No leads found. Try a different subreddit, more posts, or a broader product description.</p>'; return; }
@@ -280,21 +447,62 @@ function renderLeads(leads) {
   body.innerHTML = html;
 }
 
-// ---- export ----
+function renderCompanies(companies) {
+  const card = document.getElementById("resultsCard");
+  card.classList.remove("hidden");
+  document.getElementById("resultsTitle").textContent = "Shortlisted companies";
+  document.getElementById("resultCount").textContent = companies.length + " shown";
+  const body = document.getElementById("resultsBody");
+  if (!companies.length) { body.innerHTML = '<p style="color:var(--muted)">No probable customers shortlisted. Try a broader business type, a bigger city, or a different product description.</p>'; return; }
+
+  let html = '<table><thead><tr><th>Conf</th><th>Company</th><th>Category</th><th>Contact</th><th>Address</th><th>Why a fit</th></tr></thead><tbody>';
+  for (const c of companies) {
+    const contactBits = [];
+    if (c.phone) contactBits.push(escapeHtml(c.phone));
+    if (c.website) contactBits.push(`<a href="${escapeAttr(c.website)}" target="_blank" rel="noopener">website</a>`);
+    const maps = (c.lat && c.lon) ? `<a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}" target="_blank" rel="noopener">map</a>` : "";
+    if (maps) contactBits.push(maps);
+    const contact = contactBits.length ? contactBits.join(" · ") : '<span style="opacity:.5">—</span>';
+    html += `<tr>
+      <td class="conf">${(c.confidence).toFixed(2)}</td>
+      <td><b>${escapeHtml(c.name)}</b></td>
+      <td><span class="pill">${escapeHtml(c.category)}</span></td>
+      <td style="white-space:nowrap; font-size:13px">${contact}</td>
+      <td style="max-width:260px; color:var(--muted); font-size:12px">${escapeHtml(c.address)}</td>
+      <td style="max-width:300px; color:var(--muted)">${escapeHtml(c.reason)}${c.fit_signals ? `<br><span style="font-size:11px; opacity:.7">${escapeHtml(c.fit_signals)}</span>` : ""}</td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  body.innerHTML = html;
+}
+
+// ---- export (branches by last result type) ----
 document.getElementById("exportBtn").addEventListener("click", () => {
   const mc = document.getElementById("minConf").value || 0.5;
-  window.location = "/api/export?min_confidence=" + mc;
+  const url = lastResultType === "companies" ? "/api/companies/export" : "/api/export";
+  window.location = url + "?min_confidence=" + mc;
 });
 
-// re-fetch from DB when min-confidence changes
+// re-fetch from DB when min-confidence changes (branches by last result type)
 document.getElementById("minConf").addEventListener("change", async (e) => {
-  const r = await fetch("/api/leads?min_confidence=" + (e.target.value || 0.5));
-  const rows = await r.json();
-  renderLeads(rows.map(x => ({
-    author: x.author, confidence: x.confidence, intent: x.intent, urgency: x.urgency,
-    reason: x.reason, text: x.text, url: x.post_url, source: x.source,
-    created_at: x.created_at
-  })));
+  const mc = e.target.value || 0.5;
+  if (lastResultType === "companies") {
+    const r = await fetch("/api/companies?min_confidence=" + mc);
+    const rows = await r.json();
+    renderCompanies(rows.map(x => ({
+      name: x.name, category: x.category, address: x.address, phone: x.phone,
+      website: x.website, confidence: x.confidence, reason: x.reason,
+      fit_signals: x.fit_signals, lat: x.lat, lon: x.lon
+    })));
+  } else {
+    const r = await fetch("/api/leads?min_confidence=" + mc);
+    const rows = await r.json();
+    renderLeads(rows.map(x => ({
+      author: x.author, confidence: x.confidence, intent: x.intent, urgency: x.urgency,
+      reason: x.reason, text: x.text, url: x.post_url, source: x.source,
+      created_at: x.created_at
+    })));
+  }
 });
 
 function formatPosted(l) {
