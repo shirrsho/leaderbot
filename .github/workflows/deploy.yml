@@ -61,7 +61,32 @@ jobs:
     name: Deploy to VPS
     needs: docker
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_DIR: /home/${{ secrets.VPS_USERNAME }}/redelevators/leaderbot
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure deploy directory exists
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: mkdir -p "${{ env.DEPLOY_DIR }}"
+
+      - name: Copy docker-compose.prod.yml to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "docker-compose.prod.yml"
+          target: ${{ env.DEPLOY_DIR }}
+          strip_components: 0
+
       - name: Write .env and redeploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -72,23 +97,13 @@ jobs:
           envs: ENV_FILE_CONTENT
           script: |
             set -euo pipefail
-            DEPLOY_DIR="/home/${{ secrets.VPS_USERNAME }}/redelevators/leaderbot"
-            mkdir -p "$DEPLOY_DIR"
-            cd "$DEPLOY_DIR"
+            cd "${{ env.DEPLOY_DIR }}"
 
             # Env vars come from the ENV_FILE GitHub secret, written fresh on every deploy.
             printf '%s\n' "$ENV_FILE_CONTENT" > .env
 
-            docker pull itzwasik/leaderbot:latest
-            docker stop leaderbot 2>/dev/null || true
-            docker rm leaderbot 2>/dev/null || true
-            docker run -d \
-              --name leaderbot \
-              --restart unless-stopped \
-              -p 127.0.0.1:3500:3500 \
-              --env-file .env \
-              -v leaderbot-data:/app/data \
-              itzwasik/leaderbot:latest
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
         env:
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
