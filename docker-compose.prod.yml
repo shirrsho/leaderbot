@@ -1,18 +1,30 @@
 services:
-  leaderbot:
+  # Service name "web" is the DNS name cloudflared resolves inside the
+  # docker network — matches the http://web:3000 route configured in the
+  # Cloudflare Tunnel dashboard for tunnel 9c69466c-ae11-4afb-86ec-352370980481.
+  web:
     image: itzwasik/leaderbot:latest
     container_name: leaderbot
     restart: unless-stopped
     ports:
-      # Bind only to localhost — Cloudflare Tunnel (cloudflared) reaches this
-      # over loopback, so the port is never exposed on the public interface.
-      - "127.0.0.1:3500:3500"
+      # Loopback-only direct/debug access, independent of the tunnel.
+      - "127.0.0.1:6002:3000"
     env_file:
       - .env
     environment:
       LEADS_DB_PATH: /app/data/leads.db
     volumes:
       - leaderbot-data:/app/data
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: leaderbot-cloudflared
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - web
 
 volumes:
   leaderbot-data:

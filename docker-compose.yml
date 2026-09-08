@@ -5,9 +5,10 @@ services:
     container_name: leaderbot
     restart: unless-stopped
     ports:
-      # Bind only to localhost — Cloudflare Tunnel (cloudflared) reaches this
-      # over loopback, so the port is never exposed on the public interface.
-      - "127.0.0.1:3500:3500"
+      # Bind only to localhost — for local/direct access. The prod tunnel
+      # (see docker-compose.prod.yml) reaches the app over the docker
+      # network instead, not through this port.
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env
     environment:

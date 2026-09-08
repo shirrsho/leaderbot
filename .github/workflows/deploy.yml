@@ -94,16 +94,20 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          envs: ENV_FILE_CONTENT
+          envs: ENV_FILE_CONTENT,CLOUDFLARE_TUNNEL_TOKEN
           script: |
             set -euo pipefail
             cd "${{ env.DEPLOY_DIR }}"
 
             # Env vars come from the ENV_FILE GitHub secret, written fresh on every deploy.
             printf '%s\n' "$ENV_FILE_CONTENT" > .env
+            # cloudflared (see docker-compose.prod.yml) reads this via ${CLOUDFLARE_TUNNEL_TOKEN}
+            # docker-compose variable substitution, which picks up .env in the cwd automatically.
+            printf 'CLOUDFLARE_TUNNEL_TOKEN=%s\n' "$CLOUDFLARE_TUNNEL_TOKEN" >> .env
 
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
         env:
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
