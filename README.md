@@ -120,4 +120,40 @@ python review.py --export leads.csv       # export to CSV
 - Nothing here auto-contacts anyone — review flagged leads yourself before
   reaching out, both for quality and to respect each platform's rules.
 - Leads are stored in `leads.db` (SQLite, gitignored).
-# leaderbot
+
+## Deployment
+
+Production runs on the Advergo VPS as the Hostinger Docker Manager project
+**`redelevators-leaderbot`**, in `/docker/redelevators-leaderbot/`: `docker-compose.yml` (this
+repo's `docker-compose.prod.yml`) and `.env` (the panel's Environment box). Visitors reach it only
+through the Red Elevators leaderbot Cloudflare Tunnel (`leaderbot.redelevators.com` →
+`http://web:3000`). Leads are kept in SQLite at `/app/data/leads.db`, on the volume
+`redelevators-leaderbot_leaderbot-data`.
+
+Every push to `main` runs `.github/workflows/deploy.yml`: after the checks pass it builds the
+image, pushes `itzwasik/leaderbot:sha-<commit>` (and `:latest`) to Docker Hub, copies
+`docker-compose.prod.yml` to the server as `docker-compose.yml` with the image pinned to that
+build, and runs `ops/deploy.sh` there (copy `leads.db` to
+`backups/prod/leaderbot-predeploy-<time>.db`, restart, wait until healthy, check
+`http://127.0.0.1:6002/` on the VPS). Deploys never write `.env`.
+
+| Production setting (panel Environment) | Purpose |
+|---|---|
+| `GROQ_API_KEY` | Groq API key (required) |
+| `GROQ_MODEL` | Groq model; optional, defaults to `openai/gpt-oss-120b` |
+| `REDDIT_COOKIE` | Logged-in Reddit cookie so Reddit requests aren't blocked; optional |
+| `REDDIT_USER_AGENT` | User-Agent override for Reddit/OpenStreetMap requests; optional |
+| `CLOUDFLARE_TUNNEL_TOKEN` | The leaderbot tunnel's token |
+
+A new setting must be added to both the panel's Environment box and `docker-compose.prod.yml`: the
+panel rejects `env_file`, so each one is listed there explicitly.
+
+The image has no build-time settings.
+
+GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `VPS_HOST`, `VPS_SSH_PORT`,
+`VPS_SSH_USER` (`root`) and `VPS_SSH_KEY`.
+
+Rolling back: in the panel, set the `image:` tag in the YAML editor to the previous `sha-…` and
+press Deploy (the previous file is also kept on the server as `backups/docker-compose.previous.yml`).
+To restore the data, stop the project and copy a `backups/prod/leaderbot-predeploy-*.db` file over
+`leads.db` in the volume.

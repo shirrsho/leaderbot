@@ -1,30 +1,59 @@
+# Production. Runs on the Advergo VPS as the Hostinger Docker Manager project
+# "redelevators-leaderbot", in /docker/redelevators-leaderbot/ as docker-compose.yml next to its
+# .env. Local use goes through docker-compose.yml / docker-compose.dev.yml.
+#
+# Who owns what:
+#   - This file belongs to the repo. Every deploy copies it to the server with the image pinned to
+#     the exact build (sha-<commit>), so lasting changes go here, not in the panel's YAML editor.
+#     Changing the tag there for an emergency rollback is fine.
+#   - Settings belong to the panel's Environment box (the server's .env). Deploys never write it.
+#     The panel rejects `env_file`, and only fills in the ${...} values below, so every setting
+#     the app reads is listed here explicitly. Add a setting in both places.
+#
+# Traffic reaches the app only through the Red Elevators leaderbot Cloudflare Tunnel (the `tunnel`
+# service): leaderbot.redelevators.com -> http://web:3000. The loopback port exists only so the
+# deploy can health-check the app from the VPS itself.
+#
+# The image is built by CI and pushed to Docker Hub; nothing is built on the server.
 services:
-  # Service name "web" is the DNS name cloudflared resolves inside the
-  # docker network — matches the http://web:3000 route configured in the
-  # Cloudflare Tunnel dashboard for tunnel 9c69466c-ae11-4afb-86ec-352370980481.
   web:
     image: itzwasik/leaderbot:latest
-    container_name: leaderbot
     restart: unless-stopped
-    ports:
-      # Loopback-only direct/debug access, independent of the tunnel.
-      - "127.0.0.1:6002:3000"
-    env_file:
-      - .env
     environment:
+      GROQ_API_KEY: ${GROQ_API_KEY:?set GROQ_API_KEY in the panel Environment}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      # Empty means "not set" to the app: it falls back to its built-in browser User-Agent and
+      # makes logged-out Reddit requests.
+      REDDIT_COOKIE: ${REDDIT_COOKIE:-}
+      REDDIT_USER_AGENT: ${REDDIT_USER_AGENT:-}
       LEADS_DB_PATH: /app/data/leads.db
+    ports:
+      - "127.0.0.1:6002:3000"
+    # The image has no curl or wget, but it has Python. `up --wait` in ops/deploy.sh relies on this.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     volumes:
       - leaderbot-data:/app/data
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: leaderbot-cloudflared
-    restart: unless-stopped
-    command: tunnel run
+  tunnel:
+    # The existing Red Elevators leaderbot tunnel (Cloudflare Zero Trust -> Networks -> Tunnels),
+    # tunnel 9c69466c-ae11-4afb-86ec-352370980481.
+    image: cloudflare/cloudflared:2026.9.3
+    command: ["tunnel", "--no-autoupdate", "run"]
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in the panel Environment}
+    # Started, not healthy: the tunnel is the only way in, so it must never be held back by a slow
+    # health check. ops/deploy.sh still waits for health and fails the deploy if it never comes.
     depends_on:
-      - web
+      web:
+        condition: service_started
+    restart: unless-stopped
 
+# SQLite (leads.db). Compose prefixes this with the project name:
+# redelevators-leaderbot_leaderbot-data on the VPS. Never rename the panel project.
 volumes:
   leaderbot-data:
