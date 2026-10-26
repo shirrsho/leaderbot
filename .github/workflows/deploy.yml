@@ -1,9 +1,19 @@
 name: CI/CD
 
+# Production is the Hostinger Docker Manager project "redelevators-leaderbot" in
+# /docker/redelevators-leaderbot on the Advergo VPS. After the checks pass, this workflow builds
+# the image, pushes it to Docker Hub, copies docker-compose.prod.yml there (as docker-compose.yml)
+# with the image pinned to this exact build, and restarts it. It never writes the server's .env:
+# settings live in the panel's Environment box.
 on:
   push:
     branches:
       - main
+
+env:
+  IMAGE: itzwasik/leaderbot
+  PROJECT_DIR: /docker/redelevators-leaderbot
+  HEALTH_URL: http://127.0.0.1:6002/
 
 jobs:
   build-and-check:
@@ -33,9 +43,17 @@ jobs:
     name: Build & push Docker image
     needs: build-and-check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Image tag
+        id: vars
+        run: echo "tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -52,8 +70,8 @@ jobs:
           context: .
           push: true
           tags: |
-            itzwasik/leaderbot:latest
-            itzwasik/leaderbot:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -61,53 +79,63 @@ jobs:
     name: Deploy to VPS
     needs: docker
     runs-on: ubuntu-latest
-    env:
-      DEPLOY_DIR: /home/${{ secrets.VPS_USERNAME }}/redelevators/leaderbot
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure deploy directory exists
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: mkdir -p "${{ env.DEPLOY_DIR }}"
+      # The server's compose file names the exact build, so the panel shows what is running and a
+      # rollback is just the previous tag.
+      - name: Prepare the release files
+        env:
+          TAG: ${{ needs.docker.outputs.tag }}
+        run: |
+          mkdir -p out
+          sed "s#^\([[:space:]]*image: ${IMAGE}:\).*#\1${TAG}#" docker-compose.prod.yml > out/docker-compose.yml
+          grep -q "image: ${IMAGE}:${TAG}" out/docker-compose.yml
+          cp ops/deploy.sh out/
 
-      - name: Copy docker-compose.prod.yml to VPS
+      # Connections from GitHub to the VPS occasionally time out; wait for SSH to answer instead of
+      # failing the deploy on a network blip.
+      - name: Wait for SSH on the VPS
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          for _ in $(seq 1 12); do
+            if timeout 10 bash -c "exec 3<>/dev/tcp/$HOST/$PORT" 2>/dev/null; then echo "SSH reachable"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::the VPS did not accept connections on its SSH port for 2 minutes"; exit 1
+
+      - name: Copy the release files to the VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          username: ${{ secrets.VPS_SSH_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          source: "docker-compose.prod.yml"
-          target: ${{ env.DEPLOY_DIR }}
-          strip_components: 0
+          source: "out/docker-compose.yml,out/deploy.sh"
+          target: /tmp/redelevators-leaderbot-release
+          strip_components: 1
 
-      - name: Write .env and redeploy over SSH
+      - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          username: ${{ secrets.VPS_SSH_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          envs: ENV_FILE_CONTENT,CLOUDFLARE_TUNNEL_TOKEN
+          # The action reports only the last command's exit status, so keep deploy.sh's and exit
+          # with it after cleaning up; otherwise a failed deploy shows as a success.
           script: |
-            set -euo pipefail
-            cd "${{ env.DEPLOY_DIR }}"
-
-            # Env vars come from the ENV_FILE GitHub secret, written fresh on every deploy.
-            printf '%s\n' "$ENV_FILE_CONTENT" > .env
-            # cloudflared (see docker-compose.prod.yml) reads this via ${CLOUDFLARE_TUNNEL_TOKEN}
-            # docker-compose variable substitution, which picks up .env in the cwd automatically.
-            printf 'CLOUDFLARE_TUNNEL_TOKEN=%s\n' "$CLOUDFLARE_TUNNEL_TOKEN" >> .env
-
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker image prune -f
-        env:
-          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
-          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+            bash /tmp/redelevators-leaderbot-release/deploy.sh ${{ env.PROJECT_DIR }} \
+              /tmp/redelevators-leaderbot-release/docker-compose.yml \
+              ${{ needs.docker.outputs.tag }} ${{ env.HEALTH_URL }}
+            rc=$?
+            rm -rf /tmp/redelevators-leaderbot-release
+            exit $rc
